@@ -1,7 +1,16 @@
-void DrawFooterButtons_Power_Sleep_Alarm(void);
-bool startUrl(const char *url, bool useAlarmGain = false);
+#include "audio/audio.h"
 
+#include <AudioFileSourceBuffer.h>
+#include <AudioFileSourceICYStream.h>
+#include <AudioGeneratorMP3.h>
+#include <AudioOutputI2S.h>
 #include <math.h>
+
+#include "app/app_config.h"
+#include "app/app_state.h"
+#include "app/log.h"
+#include "board_config.h"
+#include "drivers/display/lvgl_ili9341/tft_display.h"
 
 /* Stream-/Codec per malloc beim ersten startUrl — nicht in setup nach LVGL (sonst ~100 KiB Heap → LwIP/Wetter). */
 const int preallocateBufferSize = 40 * 1024;
@@ -92,7 +101,7 @@ static bool audio_ensure_i2s_on_esp8266_style(void) {
 // Funktion für die gesamte erforderliche Einrichtung
 void setup_audio() {
   out = new AudioOutputI2S(0, AudioOutputI2S::EXTERNAL_I2S, 4, AudioOutputI2S::APLL_DISABLE);
-  out->SetPinout(BCLK, LRCLK, DOUT);
+  out->SetPinout(PIN_I2S_BCLK, PIN_I2S_LRCLK, PIN_I2S_DOUT);
   out->SetOutputModeMono(true);
 #if defined(ESP32)
   /* I2S erst bei decoder->begin() — sonst doppeltes begin() beim ersten startUrl (Assert). */

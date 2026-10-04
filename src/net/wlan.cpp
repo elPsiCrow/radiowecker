@@ -1,4 +1,10 @@
-#include "i18n.h"
+#include "net/wlan.h"
+
+#include <WiFi.h>
+
+#include "app/app_config.h"
+#include "app/log.h"
+#include "ui/i18n.h"
 
 // Initialisiert das WiFi-Modul mit den angegebenen SSID und Passkey (C-Strings)
 boolean initWiFi(const char *wifiSsid, const char *wifiPkey) {

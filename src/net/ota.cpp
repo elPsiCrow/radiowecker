@@ -1,6 +1,15 @@
-void ota_ui_begin(const char *title);
-void ota_ui_set_sub(const char *sub);
+#include "net/ota.h"
 
+#include <ArduinoOTA.h>
+
+#include "app/app_config.h"
+#include "app/app_state.h"
+#include "drivers/display/lvgl_ili9341/tft_display.h"
+
+static void ota_onStart();
+static void ota_onEnd();
+static void ota_onProgress(unsigned int progress, unsigned int total);
+static void ota_onError(ota_error_t error);
 // Variable zur Verfolgung des Fortschritts der OTA-Aktualisierung
 uint32_t oldprc;
 
@@ -21,7 +30,7 @@ void setup_ota() {
 }
 
 // Callback-Funktion, die aufgerufen wird, wenn die OTA-Aktualisierung beginnt
-void ota_onStart() {
+static void ota_onStart() {
   displayClear();
   setBGLight(100);
   oldprc = 0;
@@ -30,12 +39,12 @@ void ota_onStart() {
 }
 
 // Callback-Funktion, die aufgerufen wird, wenn die OTA-Aktualisierung endet
-void ota_onEnd() {
+static void ota_onEnd() {
   ota_ui_set_sub("Done");
 }
 
 // Callback-Funktion, die aufgerufen wird, um den Fortschritt der OTA-Aktualisierung anzuzeigen
-void ota_onProgress(unsigned int progress, unsigned int total) {
+static void ota_onProgress(unsigned int progress, unsigned int total) {
   uint32_t prc = progress / (total / 100);  // Berechne den Fortschritt in Prozent
   char tmp[20];
   // Wenn der Fortschritt gestiegen ist, aktualisiere die Fortschrittsanzeige
@@ -46,7 +55,7 @@ void ota_onProgress(unsigned int progress, unsigned int total) {
 }
 
 // Callback-Funktion, die bei einem Fehler während der OTA-Aktualisierung aufgerufen wird
-void ota_onError(ota_error_t error) {
+static void ota_onError(ota_error_t error) {
   char err[80];
   // Formatierte Fehlermeldung
   sprintf(err, "Error[%u]: ", error);

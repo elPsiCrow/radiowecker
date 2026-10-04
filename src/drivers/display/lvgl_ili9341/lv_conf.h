@@ -1,19 +1,13 @@
 /**
  * @file lv_conf.h
- * LVGL 9.5.x — Radiowecker (ESP32 + ILI9341)
+ * LVGL 9.5.x configuration for the ILI9341 TFT driver.
  *
- * Arduino IDE: lvgl-Bibliothek 9.5.x installieren; lv_conf.h liegt im Sketch-Ordner,
- * LV_CONF_INCLUDE_SIMPLE ist in der Library üblich gesetzt.
+ * PlatformIO finds this file through the include path and LV_CONF_INCLUDE_SIMPLE set in platformio.ini
+ * ([lvgl_tft] build_flags); no copy into the library folder is needed.
  *
- * App-Partition groß genug wählen (LVGL 9 + Radio): z. B. „Minimal SPIFFS (1.9MB APP…)“
- * oder „Huge APP“, nicht „Default 4MB with spiffs“ (~1,2 MB APP).
- *
- * Assembler-Fehler „unknown opcode … typedef“ in _default_types.h / stdint.h:
- * Dann fehlt LV_CONF_INCLUDE_SIMPLE beim Bau der LVGL-.S-Dateien — im Sketch liegt
- * build_opt.h mit -DLV_CONF_INCLUDE_SIMPLE (ESP32-Core wertet sie für alle Units aus).
- * Zusätzlich: dieselbe Datei nach …/Arduino/libraries/lvgl/src/lv_conf.h kopieren
- * (wird beim Kompilieren der LVGL-Bibliothek gelesen; sonst fehlen z. B. lv_font_montserrat_18).
- * Nach Änderungen an dieser Datei die Kopie erneut überschreiben.
+ * LVGL 9 plus the radio needs a large app partition; use a layout without a big filesystem (no_fs.csv).
+ * LV_USE_DRAW_SW_ASM and LV_USE_NATIVE_HELIUM_ASM are disabled via build_flags because the assembler
+ * sources do not build on ESP32.
  */
 
 /*

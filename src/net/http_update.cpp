@@ -4,17 +4,21 @@
  * gleicher OTA-Screen (ota_ui_*, showProgress) wie zuvor, dann WLAN + TLS-Download.
  * setup_senderList usw. entfallen bis zum nächsten vollständigen Boot. */
 
-#include <string.h>
-#include <WiFiClientSecure.h>
-#include <HTTPUpdate.h>
-#include "ArduinoJson.h"
-#include "i18n.h"
+#include "net/http_update.h"
 
-boolean initWiFi(const char *wifiSsid, const char *wifiPkey);
-void setBGLight(uint8_t prct);
-void ota_ui_begin(const char *title);
-void ota_ui_set_sub(const char *sub);
-void showProgress(uint32_t prc);
+#include <ArduinoJson.h>
+#include <HTTPUpdate.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <string.h>
+
+#include "app/app_config.h"
+#include "app/app_state.h"
+#include "app/log.h"
+#include "drivers/display/lvgl_ili9341/tft_display.h"
+#include "net/webserver.h"
+#include "net/wlan.h"
+#include "ui/i18n.h"
 
 static bool http_ota_tag_ok(const char *t) {
   if (!t || !*t) return false;
@@ -127,8 +131,6 @@ void httpOtaRunDeferredBoot(void) {
   delay(3000);
   ESP.restart();
 }
-
-extern WebServer server;
 
 void handleStartHttpUpdate(void) {
   if (server.method() != HTTP_POST) {

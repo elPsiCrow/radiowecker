@@ -1,4 +1,12 @@
-// Anzahl der Standardstationen in der Liste
+#include "app/stations.h"
+
+#include <Preferences.h>
+#include <string.h>
+
+#include "app/app_config.h"
+#include "app/app_state.h"
+
+// Number of built-in default stations
 #define DEFAULTSTATIONS 26
 
 // Definition eines Sets getesteter Standardstationen, gespeichert im Flash-Speicher (PROGMEM)

@@ -1,18 +1,59 @@
 //home page and templatefor options
-#include <string.h>
+#include "net/webserver.h"
+
+#include <ArduinoJson.h>
+#include <WiFi.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include "index.h"
-#include "ArduinoJson.h"
-#include "i18n.h"
-#include "ui_start_colors.h"
+#include <string.h>
 
-void handleStartHttpUpdate(void);
-void getLang(void);
-void setLang(void);
-void setAlarmGainWeb(void);
-void setAlarmWakeWeb(void);
-void getHeapOnly(void);
+#include "app/alarm.h"
+#include "app/app_config.h"
+#include "app/app_state.h"
+#include "app/log.h"
+#include "audio/audio.h"
+#include "drivers/display/lvgl_ili9341/tft_display.h"
+#include "net/http_update.h"
+#include "net/web_pages.h"
+#include "ui/i18n.h"
+#include "ui/ui_start_colors.h"
+
+// HTTP handlers registered in setup_webserver(); defined further down in this file.
+void handleRoot();
+void sendStations();
+void sendStationsActive();
+void restoreStations();
+void restart();
+void setAccessData();
+void getAccessData();
+void getAlarms();
+void setAlarms();
+void getStationData();
+void setStationData();
+void testStation();
+void endTest();
+void startPlay();
+void stopPlay();
+void GainSlider();
+void btnAlarm();
+void startSleep();
+void beforeStation();
+void nextStation();
+void selectStationByIndex();
+void getCurrentStatus();
+void getDisplaySettings();
+void setBrightWeb();
+void setSleepTimerWeb();
+void setAlarmSnoozeWeb();
+void setAlarmGainWeb();
+void setAlarmWakeWeb();
+void getStartColors();
+void setStartColorsWeb();
+void resetStartColorsWeb();
+void getInfo();
+void getHeapOnly();
+void getLang();
+void setLang();
 
 WebServer server(80);
 

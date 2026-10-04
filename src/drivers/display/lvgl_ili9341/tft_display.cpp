@@ -1,13 +1,22 @@
-#include "tft_color_setting.h"
+#include "drivers/display/lvgl_ili9341/tft_display.h"
+
+#include <Adafruit_ILI9341.h>
+#include <WiFi.h>
+#include <XPT2046_Touchscreen.h>
+#include <lvgl.h>
+
+#include "app/alarm.h"
+#include "app/app_state.h"
+#include "app/log.h"
+#include "audio/audio.h"
+#include "board_config.h"
+#include "ui/i18n.h"
 #include "lv_font_clock_digits.h"
-#include "i18n.h"
-#include "weather.h"
+#include "net/weather.h"
+#include "tft_color_setting.h"
 #if defined(ARDUINO_ARCH_ESP32)
 #include <esp_random.h>
 #endif
-
-class AudioGenerator;
-extern AudioGenerator *decoder;
 
 extern "C" const lv_font_t lv_font_latin_supp_14;
 extern "C" const lv_font_t lv_font_latin_supp_14_for_m18;
@@ -40,8 +49,8 @@ AlarmEdit alarmConfig;
 
 UiStartColors ui_start_cols;
 
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
-XPT2046_Touchscreen touch(TOUCH_CS, TOUCH_IRQ);
+Adafruit_ILI9341 tft = Adafruit_ILI9341(PIN_TFT_CS, PIN_TFT_DC, PIN_TFT_RST);
+XPT2046_Touchscreen touch(PIN_TOUCH_CS, PIN_TOUCH_IRQ);
 
 /* Partialspeicher: 11 Zeilen statt 14 spart ~2 KiB .bss (ESP32 DRAM-Grenze) */
 static lv_color_t buf1[320 * 7];
@@ -1293,6 +1302,8 @@ static void config_row_slider(lv_obj_t *parent, const char *label, lv_obj_t **sl
   style_slider_light(*sl);
 }
 
+static void ui_cfg_lang_lbl_refresh(void);
+
 static void evt_footer_cfg_lang(lv_event_t *e) {
   (void)e;
   i18n_set_lang((uint8_t)((i18n_get_lang() + 1) % 6));
@@ -1888,9 +1899,9 @@ void touch_loop(void) {
 }
 
 void setup_display(void) {
-  pinMode(TFT_LED, OUTPUT);
-  pinMode(LDR, INPUT);
-  lastldr = analogRead(LDR);
+  pinMode(PIN_TFT_BACKLIGHT, OUTPUT);
+  pinMode(PIN_LDR, INPUT);
+  lastldr = analogRead(PIN_LDR);
   setBGLight(100);
 
   tft.begin();
@@ -2154,7 +2165,7 @@ void web_apply_alarm_wake(uint8_t v) {
 /* Zuletzt an TFT_LED geschriebener Wert (nach LED_ON-Invert) → logische Helligkeit 0…255 vor Invert. */
 static uint16_t ldr_logical_from_pin_pwm(uint16_t pinDuty) {
   if (pinDuty > 255) pinDuty = 255;
-#if LED_ON == 0
+#if TFT_BACKLIGHT_ACTIVE_LEVEL == 0
   return (uint16_t)(255 - pinDuty);
 #else
   return pinDuty;
@@ -2174,7 +2185,7 @@ void setBGLight(uint8_t prct) {
     prevLdrMs = millis();
     lastWasManualBright = false;
 
-    uint16_t raw = (uint16_t)analogRead(LDR);
+    uint16_t raw = (uint16_t)analogRead(PIN_LDR);
     uint16_t target = (uint16_t)((uint32_t)raw * 255U / 4096U);
     if (target < LDR_LED_PWM_MIN) target = LDR_LED_PWM_MIN;
     if (target > 255) target = 255;
@@ -2196,10 +2207,10 @@ void setBGLight(uint8_t prct) {
   if (ledb > 255) ledb = 255;
   /* Mindest-PWM bei fester Prozent-Helligkeit; LDR-Minimum siehe LDR_LED_PWM_MIN in 00_pin_settings.h */
   if (prct != 0 && ledb < 3) ledb = 3;
-  if (LED_ON == 0) ledb = (uint16_t)(255 - ledb);
+  if (TFT_BACKLIGHT_ACTIVE_LEVEL == 0) ledb = (uint16_t)(255 - ledb);
   if (ledb != lastLedb) {
     RADIO_SERIAL(Serial.printf("percent = %i LED = %i\n", prct, ledb));
-    analogWrite(TFT_LED, ledb);
+    analogWrite(PIN_TFT_BACKLIGHT, ledb);
     lastLedb = ledb;
   }
 }

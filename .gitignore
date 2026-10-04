@@ -1,0 +1,5 @@
+.pio/
+*.log
+.vscode/*
+!.vscode/extensions.json
+secrets.ini

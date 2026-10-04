@@ -1,23 +1,11 @@
 #ifndef RADIOWECKER_WEATHER_H
 #define RADIOWECKER_WEATHER_H
 
+#include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <string.h>
-#include "ArduinoJson.h"
 
-#ifndef RADIO_SERIAL
-#ifndef RADIO_DEBUG_SERIAL
-#define RADIO_DEBUG_SERIAL 1
-#endif
-#if RADIO_DEBUG_SERIAL
-#define RADIO_SERIAL(x) \
-  do {                    \
-    x;                    \
-  } while (0)
-#else
-#define RADIO_SERIAL(x) ((void)0)
-#endif
-#endif
+#include "app/log.h"
 
 /**
  * Nur die sechs Werte, die die UI aus Open-Meteo braucht (vgl. API-Antwort).
