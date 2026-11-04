@@ -19,7 +19,7 @@ enum class StateChange : uint8_t {
 
 typedef void (*StateChangeListener)(StateChange change);
 
-// Up to four listeners (e.g. TFT, OLED, serial console). Extra registrations are ignored.
+// Up to four listeners (e.g. TFT, OLED, serial console). Called synchronously; callbacks must stay short.
 void addStateChangeListener(StateChangeListener listener);
 
 // Playback

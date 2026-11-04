@@ -1,5 +1,5 @@
 // Everything a display needs to show, independent of how it is drawn.
-// The application fills this in; each display driver decides what to render and how.
+// The builder refreshes this snapshot; display drivers must not retain pointers into application state.
 #pragma once
 
 #include <stdint.h>
@@ -66,6 +66,7 @@ enum class StatusTone : uint8_t { Info, Ok, Error };
 struct StatusScreen {
   static constexpr uint8_t kMaxLines = 4;
   StatusTone tone = StatusTone::Info;
+  // Text pointers are borrowed for the synchronous showStatus() call; drivers copy them if retained.
   const char* title = "";
   const char* lines[kMaxLines] = {};
   uint8_t lineCount = 0;

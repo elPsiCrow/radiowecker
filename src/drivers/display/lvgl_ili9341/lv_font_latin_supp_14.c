@@ -3,7 +3,9 @@
  * (DE/FR/ES/NL: Umlaute, Akzente, ñ, ¿¡, «», œ/Œ, …) — metrics aligned with Montserrat 14.
  * Hinweis: „ “ ” (U+201C/U+201D) sind hier nicht enthalten; im Web-Editor per Tastatur.
  */
+#ifndef LV_CONF_INCLUDE_SIMPLE
 #define LV_CONF_INCLUDE_SIMPLE
+#endif
 #include "lv_conf.h"
 #include <lvgl.h>
 

@@ -2,7 +2,9 @@
  * Cyrillic 1 bpp 16x14: 8x12 -> 2x horizontal + 1px top/bottom pad; M18 metrics 21/4.
  * AUTO: tools/RasterCyrlFont/gen_cyrl18_from_14.ps1
  */
+#ifndef LV_CONF_INCLUDE_SIMPLE
 #define LV_CONF_INCLUDE_SIMPLE
+#endif
 #include "lv_conf.h"
 #include <lvgl.h>
 

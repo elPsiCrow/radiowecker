@@ -3,7 +3,9 @@
  * AUTO-GENERATED: tools/RasterCyrlFont (font: Segoe UI).
  * Regenerate: csc /nologo /out:RasterCyrl.exe Program.cs /reference:System.Drawing.dll && RasterCyrl.exe
  */
+#ifndef LV_CONF_INCLUDE_SIMPLE
 #define LV_CONF_INCLUDE_SIMPLE
+#endif
 #include "lv_conf.h"
 #include <lvgl.h>
 

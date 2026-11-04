@@ -6,8 +6,7 @@
  * ([lvgl_tft] build_flags); no copy into the library folder is needed.
  *
  * LVGL 9 plus the radio needs a large app partition; use a layout without a big filesystem (no_fs.csv).
- * LV_USE_DRAW_SW_ASM and LV_USE_NATIVE_HELIUM_ASM are disabled via build_flags because the assembler
- * sources do not build on ESP32.
+ * Assembler acceleration is disabled here because the optional assembler sources do not build on ESP32.
  */
 
 /*

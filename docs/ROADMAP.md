@@ -6,45 +6,44 @@ different hardware (display, input, audio, light) without touching the applicati
 ## Decisions
 
 | Topic | Decision |
-|---|---|
-| Build | PlatformIO, Arduino-ESP32 core 3.x (via the pioarduino platform), C++17 |
+| --- | --- |
+| Build | PlatformIO, Arduino-ESP32 core 3.x (pioarduino stable channel), C++17 |
 | Language | English identifiers and comments; UI strings stay translatable (i18n) |
 | Upstream | Hard fork, no merges from `beabel/radiowecker` |
 | UI contract | Core publishes a **view-model**; every display decides how to render it |
-| Primary target | `yb_esp32_s3_amp` (YelloByte board, ESP32-S3-WROOM-1 N8R2) |
+| Primary target | `yb_esp32_s3_amp` (YelloByte YB-ESP32-S3-AMP Rev.3, ESP32-S3-WROOM-1 N8R2) |
 | Reference target | `esp32_ili9341` (original AZ-Touch hardware), compile-checked only |
 | Test strategy | Serial display/input on the YB board; host-side unit tests for core logic |
 
 ## Target architecture
 
-```
+```text
 src/
-  main.cpp              wiring only: pick drivers from build flags, run the app loop
-  app/                  platform-light core: settings, clock, alarms, stations, app state
+  main.cpp              startup, Arduino loop and coordination of app services
+  app/                  controller, alarm scheduling, shared settings/state, board setup contract
   audio/                player (stream/SD source -> decoder -> output), alarm beep
   net/                  Wi-Fi, web server, weather, OTA
   ui/                   view-model, IDisplay, IInput, i18n, screen/page controller
   drivers/
     display/            serial/ | lvgl_ili9341/ | ssd1315/ | ipixel_ble/   (each with README.md)
     input/              serial/ | buttons/ | encoder/ | touch_xpt2046/
-    light/              pwm/            (ILightOutput, used for sunrise-style alarm dimming)
-    storage/            sd/             (IAudioSource implementation for ringtones)
+    outputs.h           IBacklight and ILightOutput contracts (implementation pending)
 hardware/
-  <board>/board_config.h  pins + capabilities, selected per PlatformIO env
-  <board>/README.md       wiring, notes, schematics (Fritzing files move here)
-web/                    html/js/css/i18n json, embedded into the firmware at build time
+  <board>/board_config.h  pins and optional controls selected per PlatformIO env
+  <board>/board_setup.cpp register static-lifetime drivers for that board
+  <board>/README.md       wiring, notes and hardware-specific docs
+src/net/web_pages.h     embedded web UI (separate source assets are planned)
 docs/                   build, flash, usage, architecture
 test/                   host-side (native) unit tests
 ```
 
-### Interfaces (Phase 2)
+### Interfaces
 
-- `IDisplay`: `begin()`, `render(const ViewModel&)`, optional `tick()`; capabilities flag (text-only, mono, color, touch).
-- `IInput`: `poll()` produces `InputEvent` values (Up, Down, Select, Back, Stop, Snooze, VolumeDelta, ...).
-- `IBacklight`: brightness 0-100 (PWM, LDR-driven, or none).
-- `ILightOutput`: level 0-1000 and ramp request; the alarm engine asks for a ramp N minutes before the alarm.
-- `IAudioSource`: `Stream(url)` | `File(path)` | `Beep`; the player does not care where audio comes from (SD ringtones).
-- Multiple displays and inputs may be active at once (e.g. serial + OLED), so the app holds a list of each.
+- `IDisplay` is implemented: `begin()`, `render(const ViewModel&)`, `showStatus()`, optional `loop()` and capability reporting. Multiple displays can receive the same snapshot.
+- `IInput` is implemented: non-blocking `poll()` produces semantic events (`PlayPause`, `Stop`, `Snooze`, station steps, volume changes and refresh). Multiple inputs can feed the same controller path.
+- `IBacklight` is currently a contract for fixed or automatic brightness; no driver is registered yet.
+- `ILightOutput` currently exposes `begin()` and `setLevel(0..1000)`. Sunrise scheduling/ramping is future application policy, not part of this driver interface yet.
+- `IAudioSource` (`Stream(url)` / `File(path)` / `Beep`) is planned, not implemented. The current player is stream/MP3/I2S with an alarm beep path.
 
 ### Extension points kept open on purpose
 
@@ -55,25 +54,28 @@ test/                   host-side (native) unit tests
 ## Task list
 
 ### Phase 0: Foundation
+
 - [x] Roadmap
-- [x] `platformio.ini` with `yb_esp32_s3_amp` and `esp32_ili9341` environments, pinned platform and libraries
-- [x] Custom board JSON for the YB board (`boards/`)
+- [x] `platformio.ini` with YB Rev.3 and `esp32_ili9341` environments
+- [x] Use the official pioarduino YB Rev.3 board definition (remove stale custom board JSON)
 - [x] `hardware/<board>/board_config.h` for both boards
 - [x] `.gitignore`, `.editorconfig`, `.clang-format`
 - [x] Hello-world build of the S3 env to prove the toolchain
 
 ### Phase 1: Mechanical port (no behaviour change)
+
 - [x] Move vendored/generated assets (fonts, `lv_conf.h`) to their module folders
 - [x] Replace vendored `ArduinoJson.h` with a pinned `lib_deps` entry
 - [x] Convert each `.ino` to `.cpp` with explicit headers and prototypes
 - [x] Replace `00_settings.h` globals with `extern` declarations plus one definition file
 - [x] Move `lv_conf.h` / `build_opt.h` into `build_flags`
-- [x] `esp32_ili9341` env compiles; behaviour reviewed by reading, not by running
+- [x] `esp32_ili9341` env compiles; behavior is unverified on hardware
 - [ ] Translate the remaining German comments (done so far: `main.cpp`, `alarm.cpp`)
 - [ ] Replace deprecated `StaticJsonDocument` use in `webserver.cpp` / `http_update.cpp`
 - [ ] Flash use is 86 % of the `no_fs` app slot on the classic ESP32; keep an eye on it
 
 ### Phase 2: Decouple core from hardware
+
 - [ ] `AppState` / `Settings` structs replace loose globals (the controller now owns all state changes; the globals remain)
 - [x] Alarm scheduling extracted as pure functions (unit-tested natively)
 - [x] `ViewModel` and `IDisplay`, `IInput` defined and used by a `UiManager`; `IBacklight`, `ILightOutput` are headers only
@@ -86,21 +88,26 @@ test/                   host-side (native) unit tests
 - [ ] Replace the LVGL driver's direct global reads with the view-model
 
 ### Phase 3: New hardware
-- [x] YB board env builds the full app (I2S on GPIO 5/6/7, PSRAM, USB serial settings); not yet run on hardware
+
+- [x] YB Rev.3 builds and has been smoke-tested on hardware: native USB serial, Wi-Fi streaming and I2S audio; web UI not separately verified
 - [x] Serial display and serial input (primary test path)
-- [x] GPIO buttons and rotary encoder inputs with host-side tests (pins are configured in `board_config.h`); potentiometer still open
+- [x] GPIO buttons and rotary encoder input drivers with host-side tests; actual pins and physical controls remain unconfigured/unverified
 - [ ] SSD1315 OLED display
 - [ ] iPixel BLE matrix display (protocol research first)
 - [ ] `ILightOutput` PWM driver and sunrise ramp
 - [ ] SD storage driver and file audio source
 
 ### Phase 4: Web UI
-- [ ] Split `index.h` into `web/` files, per-language JSON
+
+- [ ] Split `src/net/web_pages.h` into `web/` files, per-language JSON
 - [ ] Gzip and embed at build time (PlatformIO extra script)
 - [ ] Self-host jQuery/FontAwesome or remove them (offline use)
 
 ### Phase 5: Docs and cleanup
-- [ ] Hardware docs and Fritzing files moved to `hardware/<board>/`
-- [ ] Arduino-IDE docs rewritten for PlatformIO, in English and German
-- [ ] README rewritten; upstream authors credited (Gerald Lechner, beabel)
+
+- [x] Modern English/German PlatformIO README and I/O architecture documentation
+- [x] Legacy Arduino-IDE and touch-screen setup guides retired
+- [x] Legacy Fritzing files moved beside the `esp32_ili9341` reference hardware
+- [ ] Review remaining screenshots and historical assets for relevance
+- [x] README credits the upstream project lineage (Gerald Lechner, beabel)
 - [ ] CI build for all environments

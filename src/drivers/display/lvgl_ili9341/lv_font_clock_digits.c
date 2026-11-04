@@ -1,5 +1,7 @@
 /** 7-Segment 0-9 + Doppelpunkt, 1 bpp â€” tools/gen_clock_font.ps1 */
+#ifndef LV_CONF_INCLUDE_SIMPLE
 #define LV_CONF_INCLUDE_SIMPLE
+#endif
 #include "lv_conf.h"
 #include <lvgl.h>
 

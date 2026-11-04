@@ -1,5 +1,7 @@
 # ESP32 + ILI9341 (original hardware)
 
+Deutsch: [README.de.md](README.de.md).
+
 ESP32 DevKit, 2.8" ILI9341 TFT with XPT2046 touch (e.g. AZ-Touch MOD), MAX98357A I2S amplifier, optional LDR.
 PlatformIO environment: `esp32_ili9341`.
 
@@ -18,4 +20,5 @@ testing in this fork, so it is only guaranteed to compile.
 
 SPI uses the default VSPI pins of the ESP32 (SCK 18, MISO 19, MOSI 23).
 
-Wiring diagrams (Fritzing) will move here from `DOKU/Cheap` and `DOKU/Min`.
+Legacy Fritzing projects and exported diagrams are in [`wiring/`](wiring/). They may describe older
+hardware revisions; use [`board_config.h`](board_config.h) as the current software pin map.

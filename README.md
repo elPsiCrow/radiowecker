@@ -1,299 +1,71 @@
-# Internet-Radiowecker mit Touchscreen · **Version 5.0.6**
+# Radiowecker
 
-ESP32-Webradio mit 2,8"-TFT (ILI9341), Touch (XPT2046), Wecker, Wetter, Web-Konfiguration und grafischer Oberfläche auf Basis von **LVGL 9**. Die Firmware meldet sich als **`v5.0.6`** (siehe `RADIOVERSION` in `radiowecker.ino`).
+Deutsch: [README.de.md](README.de.md).
 
-| [:skull: Issues](https://github.com/beabel/radiowecker/issues) | [:speech_balloon: Diskussionen](https://github.com/beabel/radiowecker/discussions) | [:grey_question: Wiki](https://github.com/beabel/radiowecker/wiki) |
-|----------------------------------------------------------------|-----------------------------------------------------------------------------------|----------------------------------------------------------------------|
+A modular, PlatformIO-based C++ internet radio and alarm clock for ESP32. This is a hardware-flexible fork of the [original Radiowecker project](https://github.com/beabel/radiowecker), which grew from Gerald Lechner's AZ-Delivery design.
 
----
+The first supported development target is the **YelloByte YB-ESP32-S3-AMP Rev.3**. It currently runs through a serial-console UI and the board's two MAX98357A amplifiers. The original ESP32 + ILI9341 + XPT2046 configuration remains as a compile-checked reference; it has not been tested on hardware in this fork.
 
-## Über dieses Projekt
+## Quick Start
 
-Dieses Repository ist die **aktuelle Hauptversion** des Radioweckers. Sie basiert auf dem AZ-Delivery-Artikel *[Internet Radiowecker mit Touchscreen](https://www.az-delivery.de/blogs/azdelivery-blog-fur-arduino-und-raspberry-pi/internet-radiowecker-mit-touchscreen)* von **Gerald Lechner** und der weiteren Ausarbeitung für **AZ-Touch MOD** / ESP32.
+Requirements: VS Code with the PlatformIO extension, USB connection to the board, and the PlatformIO platform/libraries specified in `platformio.ini`. On Windows, enable long paths before the first build; the ESP32 core package contains paths that exceed the legacy 260-character limit.
 
-Was sich gegenüber den **älteren Releases** (z. B. der **4.x-Linie** wie [v4.0.3](https://github.com/beabel/radiowecker/releases)) unterscheidet — Oberfläche, Bibliotheken, Build, Partition — steht im nächsten Abschnitt.
+In the PlatformIO terminal:
 
----
+```powershell
+pio run -e yb_esp32_s3_amp
+pio run -e yb_esp32_s3_amp -t upload
+pio device monitor -e yb_esp32_s3_amp
+```
 
-## Änderungen gegenüber der Version 4.x
+The board definition is for YB-ESP32-S3-AMP Rev.3, which exposes native USB CDC serial. Select its serial port in PlatformIO if automatic detection does not find it. The monitor baud rate is 115200. Press the board's `R` button after opening the monitor to see the complete boot log; type `i` and press Enter to print the current status again.
 
-Die Vorgängerversionen nutzten überwiegend **direktes Zeichnen** mit **Adafruit GFX** auf dem ILI9341 sowie die Bibliothek **TouchEvent** zur Touch-Auswertung. **Ab der 5.x-Linie** (aktueller Stand **v5.0.6**) ersetzt **LVGL 9** die **Hauptoberfläche** (Widgets, Themes, Animationen). Darunter liegt weiterhin derselbe **ILI9341**-Treiber: LVGL schreibt in einen Puffer, der auf das TFT gezeichnet wird; für wenige Zustände (z. B. WLAN-Verbindungsdialog vor dem Start von LVGL) werden weiterhin **Adafruit_ILI9341**-Aufrufe genutzt.
+Without saved Wi-Fi credentials, the device starts the `radioweckerconf` access point. Join it and open <http://192.168.4.1> to configure Wi-Fi. Once connected, the serial console shows the clock, playback, volume, alarm and network state.
 
-### Flash, Partition und neue Dateien
+| Serial command | Action |
+| --- | --- |
+| `i` | Print current status |
+| `p` | Play / pause |
+| `s` | Stop playback or alarm |
+| `z` | Snooze an active alarm; otherwise start the sleep timer |
+| `n` / `b` | Next / previous enabled station |
+| `+` / `-` | Volume up / down by 5 |
+| `v40` | Set volume to 40 percent |
 
-- **Partition Scheme:** Früher reichte oft das **Default-Layout mit SPIFFS** nicht mehr, sobald Core und Sketch wuchsen. **Ab 5.x** (Stand **5.0.6**) wird **„No FS 4MB“** empfohlen: möglichst **große App-Partition**, kein großes Dateisystem — ausreichend Platz für LVGL, Web- und Audio-Code.  
-- **LVGL-Konfiguration:** Zusätzlich zum Sketch ist **`lv_conf.h`** identisch nach **`libraries/lvgl/src/lv_conf.h`** zu kopieren (siehe Abschnitt unten). Ohne diese Kopie fehlen oft Fonts/Features beim Bau der Library.  
+The YB environment currently enables detailed application and Arduino-core logging for hardware bring-up. Reduce `RADIO_DEBUG_SERIAL` and `CORE_DEBUG_LEVEL` in `platformio.ini` for normal operation.
 
-### Sonstiges im Code
+## Build And Test
 
-- Nicht genutzte Definitionen wurden bereinigt (z. B. **Buzzer-Pin** `BEEPER`, falls du ihn bei Bedarf wieder einfügen möchtest: in `00_pin_settings.h` ergänzen und ansteuern).
+```powershell
+pio run -e yb_esp32_s3_amp
+pio run -e esp32_ili9341
+pio test -e native
+```
 
-Wenn du von einem **älteren Stand** migrierst: Sketch komplett ersetzen, Bibliotheken an die Tabelle anpassen, **Partition** umstellen, **`lv_conf.h`** doppelt pflegen, dann **vollständig flashen** (ggf. mit „Erase Flash“).
+`esp32_ili9341` verifies the original TFT build, but hardware behavior cannot be checked without that board and display. Native tests cover alarm scheduling, button debounce/repeat and rotary-encoder decoding. They require a host C++ compiler (GCC on Windows).
 
----
+## Hardware
 
-## Benötigte Hardware (Übersicht)
+- [YB-ESP32-S3-AMP Rev.3](hardware/yb_esp32_s3_amp/README.md): primary board, onboard I2S amplifiers and SD socket, serial bring-up, configurable optional controls.
+- [ESP32 + ILI9341](hardware/esp32_ili9341/README.md): original TFT/touch reference and preserved wiring diagrams.
 
-| Komponente | Hinweis |
-|------------|---------|
-| **ESP32** | z. B. DevKit wie beim AZ-Touch-Set |
-| **Display** | ILI9341, 2,8" (beim AZ-Touch MOD integriert) |
-| **Touch** | XPT2046 (beim AZ-Touch MOD) |
-| **Audio** | I2S-Verstärker (z. B. MAX98357A) + Lautsprecher |
-| **Optional** | LDR (Helligkeit) laut `00_pin_settings.h` |
+GPIO examples in `board_config.h` are not a pin assignment recommendation. Check the exact board revision, pin layout and ESP32-S3 strapping pins before connecting controls.
 
-**Pinbelegung** für Display, Touch, I2S und LDR: Datei **`radiowecker/00_pin_settings.h`**. Abweichende Boards: Pins dort anpassen.
+## Project Map
 
----
+```text
+src/app/        Application actions, alarm scheduling, state and board setup contract
+src/audio/      Internet stream and I2S playback
+src/net/        Wi-Fi, web API, weather and OTA
+src/ui/         Input/output contracts, view-model and UI manager
+src/drivers/    Serial and LVGL display/input drivers; future hardware drivers
+hardware/       Board-specific pins, driver registration and wiring notes
+test/           PlatformIO native unit tests
+docs/           Architecture and implementation roadmap
+```
 
-## Software-Voraussetzungen
+See [Architecture](docs/ARCHITECTURE.md) for the I/O contracts and current coupling, and the [Roadmap](docs/ROADMAP.md) for planned hardware and cleanup work. Driver-specific controls and wiring notes live next to their implementations.
 
-### Arduino IDE
+## Project Lineage
 
-- **Arduino IDE 2.3.8** (oder kompatible 2.x-Version)
-
-### ESP32-Boardsupport
-
-- Boardverwalter-URL:  
-  `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`  
-- Paket **esp32** von **Espressif Systems** installieren. (Version siehe Tabelle)
-
-1. Gehe zu `Werkzeuge` > `Board` > `Boardverwalter`.
-2. Suche nach **ESP32** im Suchfeld.
-3. Wähle **ESP32 by Espressif Systems** aus und klicke auf **Installieren**.
-
-> [!IMPORTANT]  
-> **Hinweis:** Stelle sicher, dass du je nach radiowecker Version die richtige **Version 2.0.17 oder > 3.0** auswählst, da es zu Problemen kommen kann.~~
-
-|Radio Version|Boardverwalter|Partition|
-| ------------- | ------------- | ------------- |
-|<= 4.0.3|2.0.17|default|
-|>= 5.x|3.3.7|No FS 4MB|
-
-### Bibliotheken (Referenzstände für v5.0.6)
-
-1. Gehe zu `Sketch` > `Include Library` > `Library Manager`.
-2. Suche nach **Bibliothek Name**.
-3. Wähle die **Version xxx** aus dem Dropdown-Menü und klicke auf **Installieren**.
-
-> [!IMPORTANT]  
-> **Hinweis:** Stelle sicher, dass du je nach radiowecker Version die richtige **Version** auswählst, da es zu Problemen kommen kann.~~
-
-| Bibliothek |Radio Version <= v4.0.3 |Radio Version >= v5.x |
-|------------|-----------|--------|
-| Adafruit_ILI9341 | 1.6.2 | 1.6.3 |
-| Adafruit_GFX | 1.12.1 | 1.12.5 |
-| XPT2046_Touchscreen | 1.4 | 1.4 |
-| ESP8266Audio by Earle F. Philhower | 2.0.0 | 2.4.1 |
-| Touchevent by Gerald-Lechner | 1.3.0 | :x: |
-| lvgl | :x: | 9.5.0 |
-
----
-
-## Board-Einstellungen in der Arduino IDE
-
-Unter **Werkzeuge** u. a.:
-
-| Einstellung | Empfehlung |
-|-------------|------------|
-| **Board** | *ESP32 Dev Module* (oder passend zu deinem Modul) |
-| **Flash Size** | *4 MB* (wenn dein Chip 4 MB hat) |
-| **Partition Scheme** | **No FS 4MB** |
-
-**Warum „No FS 4MB“?**  
-LVGL 9, Webserver, Audio und Einstellungen benötigen eine **große App-Partition**. Schemata mit großem SPIFFS/LittleFS lassen oft zu wenig Flash für den Sketch übrig und führen zu Link- oder Laufzeitproblemen.
-
-- **PSRAM:** nur *Enabled*, wenn dein Board **physikalisch PSRAM** hat.  
-- Nach Wechsel des Partitionsschemas ggf. einmal **„Erase All Flash Before Sketch Upload“** aktivieren und neu flashen.
-
----
-
-## LVGL: Pflichtschritt `lv_conf.h`
-
-Die LVGL-Bibliothek wird mit einer zentralen **`lv_conf.h`** gebaut. Dieses Projekt liefert eine passende Datei im Sketch-Ordner. **Zusätzlich** muss **dieselbe Datei** in der installierten LVGL-Library liegen:
-
-| Aktion | Pfad |
-|--------|------|
-| Quelle | `radiowecker/lv_conf.h` |
-| Ziel (Kopie, Inhalt identisch) | `Arduino/libraries/lvgl/src/lv_conf.h` |
-
-Die **Uhrzeit-Schrift** (`lv_font_clock_digits.c`) liegt im Sketch-Ordner;
-
-**Typische Pfade:**
-
-- **Windows:** `Benutzer\<Name>\Documents\Arduino\libraries\lvgl\src\lv_conf.h`  
-- **macOS / Linux:** `~/Arduino/libraries/lvgl/src/lv_conf.h`
-
-**Wichtig:** Änderst du `lv_conf.h` im Projekt, die Kopie unter `libraries/lvgl/src/` **immer wieder mitüberschreiben**, sonst kompiliert die Library mit alter Konfiguration (fehlende Fonts/Features).
-
-### Kurz-Checkliste vor dem ersten Upload
-
-1. ESP32-Boardsupport installiert, Board & **No FS 4MB** eingestellt.  
-2. Bibliotheken laut Tabelle installiert.  
-3. `lv_conf.h` nach `libraries/lvgl/src/lv_conf.h` kopiert.  
-4. Sketch-Ordner `radiowecker/` vollständig geöffnet.  
-5. Kompilieren; bei Fehlern zu Montserrat/LVGL zuerst **`lvgl/src/lv_conf.h`** prüfen.
-
----
-
-## Ersteinrichtung: WLAN
-
-1. Gerät einschalten. Ohne bekanntes WLAN startet der **Konfigurations-Access-Point** mit der SSID **`radioweckerconf`**.  
-2. PC oder Smartphone mit diesem WLAN verbinden.  
-3. Browser öffnen: **`http://192.168.4.1`**  
-4. Heim-WLAN auswählen, Passwort eintragen, speichern. Das Gerät startet neu und verbindet sich mit dem gewählten Netz.
-
-**Fehlerbehebung:** Keine Verbindung nach dem Speichern → erneut Konfigurationsmodus (wie in früheren Releases: ggf. Reset/Anleitung im Wiki oder in `DOKU/05_Bedienungsanleitung.md`).
-
----
-
-## Bedienung: Touch-Display (Kurzüberblick)
-
-1. **Obere Statuszeile**  
-   - Weckerstatus (nächste Weckzeit / deaktiviert)  
-   - IP-Adresse  
-   - Schlummer-Hinweis  
-   - WLAN-RSSI  
-
-2. **Startseite**  
-   - Große **Uhrzeit** als Ziffern-Kacheln (statische Aktualisierung, ressourcenschonend)  
-   - **Datum**  
-   - **Sender vor/zurück:** seitliche Buttons im **Datumsbereich** (nicht über der Uhr)  
-   - **Wetter** bzw. **Radio-Infos** (Sender, Streamtitel) im mittleren Bereich  
-   - **Lautstärke:** Schieberegler unten  
-
-3. **Weitere Seiten**  
-   - Über den **mittleren Bereich** (transparenter Bereich) zur **Einstellungs-/Radio-Seite** wechseln (wie im bisherigen Konzept; Details in `DOKU/05_Bedienungsanleitung.md`).  
-   - **Favoriten**, **Einstellungen**, **Wecker** über Fußzeilen-Navigation.  
-
-4. **Web-Oberfläche**  
-   - Im Heimnetz über die im Display angezeigte **IP-Adresse** erreichbar: Stationen, Wecker, WLAN u. a. konfigurieren.
-
-SVG-Übersichten zu den Masken: **`DOKU/Main_Screen_Raster.svg`**, **`DOKU/Config_Screen_Raster.svg`**, **`DOKU/Alarm_Screen_Raster.svg`**.
-
-### Firmware-Updates (Live Webupdate über die Web-UI)
-
-| Weg | Beschreibung |
-|-----|----------------|
-| **Web-UI (HTTP-OTA)** | Tab **Info**: Vergleich mit dem neuesten GitHub-Release; bei neuerer Version erscheint **„Per Web installieren…“**. Nach Bestätigung lädt das Gerät die Firmware von GitHub und startet neu. Fortschritt wie bei ArduinoOTA auf dem **TFT** (LVGL-OTA-Screen). |
-| **ArduinoOTA** | Weiterhin möglich (Hostname/Passwort in `00_settings.h`: `OTA_HOSTNAME`, `OTA_PASSWORD`) — Upload z. B. aus der **Arduino IDE** über den Netzwerk-Port. |
-
-**Voraussetzungen für HTTP-OTA**
-
-- **Partition:** weiterhin **„No FS 4MB“** (zwei OTA-App-Slots à ca. 2 MB).
-
----
-
-## Module im Sketch (Orientierung)
-
-| Datei / Bereich | Inhalt (kurz) |
-|-----------------|---------------|
-| `radiowecker.ino` | Setup, Loop, Zeit, Alarmlogik |
-| `tft_display.ino` | LVGL-UI, Seiten, Uhr |
-| `lv_font_clock_digits.c` | Minimale Bitmap-Schrift für die Uhrzeit (generierbar mit `tools/gen_clock_font.ps1` / `.py`) |
-| `audio.ino` | Stream, Decoder, I2S |
-| `wlan.ino` | WiFi, Verbindung |
-| `webserver.ino` | HTTP, API, `index.h` |
-| `stations.ino` | Senderliste, Preferences |
-| `ota.ino` | ArduinoOTA (Upload aus der IDE / Netzwerk) |
-| `http_update.ino` | HTTP-OTA aus der Web-UI (GitHub-Release-Binary) |
-
----
-
-## English summary (v5.0.6)
-
-- **ESP32** internet clock radio with **ILI9341** + **XPT2046** (library **XPT2046_Touchscreen** required for touch input to LVGL), **LVGL 9.5**, MP3 streams via **ESP8266Audio**, alarms, weather, and a built-in **web UI**. The old **TouchEvent** library is not used.  
-- **Arduino IDE 2.x**; install libraries listed above.  
-- Set **Partition Scheme** to **No FS 4MB** (large app partition).  
-- Copy **`radiowecker/lv_conf.h`** to **`Arduino/libraries/lvgl/src/lv_conf.h`** (must stay in sync). Keep **`build_opt.h`** and **`lv_font_latin_supp_14.c`** in the sketch folder.  
-- First-time WiFi: join **`radioweckerconf`**, open **`http://192.168.4.1`**, configure home WiFi.
-- **Optional firmware update from the browser:** on the **Info** tab, if GitHub has a newer release, use **“Per Web installieren…”** (device downloads **`radiowecker-firmware.bin`** from the matching release tag). 
-
-**Compared to earlier releases (e.g. 4.x):** main UI moved from raw **Adafruit GFX** + **TouchEvent** to **LVGL 9**; **XPT2046_Touchscreen** remains; **ArduinoJson** is bundled in the sketch; **partition layout** must provide a large app region; add **`lv_conf.h`** copy under **`lvgl/src/`** and use **`build_opt.h`**.
-
----
-
-## Danksagung
-
-- **Gerald Lechner** und **AZ-Delivery** für die ursprüngliche Projektidee und Dokumentation.  
-- **Earle F. Philhower** (ESP8266Audio), **LVGL**, **Adafruit**, **Paul Stoffregen** (XPT2046) für die verwendeten Bibliotheken.
-
----
-
-## Screenshots — so sieht es aus
-
-### TFT (Display)
-
-**Startseite, Radio an**
-
-![Startseite Radio an](screenshot/display_startseite_radio_on.jpg)
-
-**Startseite, Farben angepasst**
-
-![Startseite, Farben angepasst](screenshot/display_color_changed.jpg)
-
-**Startseite, Kyrilic **
-
-![Startseite, Kyrilic](screenshot/display_cyrilic.jpg)
-
-**Startseite, Radio aus, Wetter**
-
-![Startseite Radio aus, Wetter](screenshot/display_startseite_radio_off_weather_on.jpg)
-
-**Startseite, Wecker/Alarm aktiv**
-
-![Startseite, Wecker/Alarm aktiv](screenshot/display_alarm_schlummer.jpg)
-
-**Favoriten**
-
-![Favoriten](screenshot/display_favoritenseite.jpg)
-
-**Einstellungen**
-
-![Einstellungen](screenshot/display_settingspage.jpg)
-
-**Wecker**
-
-![Wecker](screenshot/display_alarmpage.jpg)
-
-**Wecker Seite 2**
-
-![Wecker](screenshot/display_alarmpage_2.jpg)
-
-### Webseite (HTML im Browser)
-
-**Startseite**
-
-![Web Startseite](screenshot/webseite_1_startseite.png)
-
-**Wecker**
-
-![Web Wecker](screenshot/webseite_2_alarmpage.png)
-
-
-**Radiosender**
-
-![Web Radiosender](screenshot/webseite_3_radiestations.png)
-
-**Slider + Color**
-
-![Slider + Color](screenshot/webseite_6_slider_color.png)
-
-**Einstellungen**
-
-![Web Einstellungen](screenshot/webseite_4_settings.png)
-
-**Info**
-
-![Web Info](screenshot/webseite_5_info.png)
-
----
-
-[![DJ Perry](https://github.com/user-attachments/assets/d750acc2-be60-44ec-8f23-0b9f69b249b6)](https://www.pulse107.com) 
-[![Pulse 107](https://github.com/user-attachments/assets/02919e84-bc1d-4336-82cd-6e2b9bc36ce8)](https://www.pulse107.com/pulse-107) 
-[![Strobe Radio](https://github.com/user-attachments/assets/a911f569-5a28-416c-8ecd-8053fa2392ae)](https://www.pulse107.com/the-strobe-radio)
-
----
-
-**Radiowecker · Version 5.0.6**
-
+The alarm-radio design and parts of its firmware derive from Gerald Lechner's AZ-Delivery project and the `beabel/radiowecker` repository. This fork is being restructured independently; original attribution and third-party library licenses remain applicable. See the upstream repository and component licenses for their respective terms.
