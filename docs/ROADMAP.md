@@ -74,18 +74,21 @@ test/                   host-side (native) unit tests
 - [ ] Flash use is 86 % of the `no_fs` app slot on the classic ESP32; keep an eye on it
 
 ### Phase 2: Decouple core from hardware
-- [ ] `AppState` / `Settings` structs replace loose globals
-- [ ] Alarm scheduling extracted as pure functions (unit-tested natively)
-- [ ] `ViewModel` and `IDisplay`, `IInput`, `IBacklight` defined
-- [ ] LVGL screen code wrapped as the `lvgl_ili9341` display driver
+- [ ] `AppState` / `Settings` structs replace loose globals (the controller now owns all state changes; the globals remain)
+- [x] Alarm scheduling extracted as pure functions (unit-tested natively)
+- [x] `ViewModel` and `IDisplay`, `IInput` defined and used by a `UiManager`; `IBacklight`, `ILightOutput` are headers only
+- [x] LVGL screen code wrapped as the `lvgl_ili9341` display driver (it still reads shared globals)
+- [x] Actions and settings moved out of the UI into `app/controller` with state-change listeners
 - [ ] Logging wrapper replaces `RADIO_SERIAL`
 - [ ] `IAudioSource` / `AudioOutput` abstraction around the player
 - [ ] Remove hardcoded OTA password (`secrets.ini`)
+- [ ] Translate remaining German comments in the other modules
+- [ ] Replace the LVGL driver's direct global reads with the view-model
 
 ### Phase 3: New hardware
-- [ ] YB board env: I2S on GPIO 5/6/7, PSRAM, USB serial settings, S3-safe startup
-- [ ] Serial display and serial input (primary test path)
-- [ ] GPIO buttons input, then rotary encoder and potentiometer
+- [x] YB board env builds the full app (I2S on GPIO 5/6/7, PSRAM, USB serial settings); not yet run on hardware
+- [x] Serial display and serial input (primary test path)
+- [x] GPIO buttons and rotary encoder inputs with host-side tests (pins are configured in `board_config.h`); potentiometer still open
 - [ ] SSD1315 OLED display
 - [ ] iPixel BLE matrix display (protocol research first)
 - [ ] `ILightOutput` PWM driver and sunrise ramp

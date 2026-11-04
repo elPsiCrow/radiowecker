@@ -16,3 +16,15 @@
 
 // Status LED; also mutes the amplifiers if solder bridge DAC_MUTE is closed (high = active).
 #define PIN_STATUS_LED 47
+
+// Optional user controls. Uncomment and set the GPIOs you wired; board_setup.cpp picks them up.
+// The numbers below are examples only: check them against the board's pin layout and the strapping pins.
+// Buttons connect the pin to GND (internal pull-up). See src/drivers/input/*/README.md.
+// #define PIN_BTN_PLAY 4
+// #define PIN_BTN_NEXT 15
+// #define PIN_BTN_PREV 16
+// #define PIN_BTN_VOL_UP 17
+// #define PIN_BTN_VOL_DOWN 18
+// #define PIN_ENCODER_A 8
+// #define PIN_ENCODER_B 9
+// #define PIN_ENCODER_SW 14  // Optional push switch of the encoder

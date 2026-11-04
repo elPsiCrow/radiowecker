@@ -4,14 +4,17 @@
 
 #include "app/app_config.h"
 #include "app/app_state.h"
-#include "drivers/display/lvgl_ili9341/tft_display.h"
+#include "ui/ui_manager.h"
 
 static void ota_onStart();
 static void ota_onEnd();
 static void ota_onProgress(unsigned int progress, unsigned int total);
 static void ota_onError(ota_error_t error);
-// Variable zur Verfolgung des Fortschritts der OTA-Aktualisierung
-uint32_t oldprc;
+
+static const char kOtaTitle[] = "Updating Sketch";
+
+// Last percentage shown, so the display is only updated when it changes.
+static uint32_t oldprc;
 
 // Funktion zur Vorbereitung der OTA-Aktualisierung
 void setup_ota() {
@@ -31,26 +34,19 @@ void setup_ota() {
 
 // Callback-Funktion, die aufgerufen wird, wenn die OTA-Aktualisierung beginnt
 static void ota_onStart() {
-  displayClear();
-  setBGLight(100);
   oldprc = 0;
-  ota_ui_begin("Updating Sketch");
-  showProgress(0);
+  ui.showProgress(kOtaTitle, 0);
 }
 
-// Callback-Funktion, die aufgerufen wird, wenn die OTA-Aktualisierung endet
 static void ota_onEnd() {
-  ota_ui_set_sub("Done");
+  ui.showMessage(kOtaTitle, StatusTone::Ok, "Done");
 }
 
-// Callback-Funktion, die aufgerufen wird, um den Fortschritt der OTA-Aktualisierung anzuzeigen
 static void ota_onProgress(unsigned int progress, unsigned int total) {
-  uint32_t prc = progress / (total / 100);  // Berechne den Fortschritt in Prozent
-  char tmp[20];
-  // Wenn der Fortschritt gestiegen ist, aktualisiere die Fortschrittsanzeige
+  uint32_t prc = progress / (total / 100);
   if (prc > oldprc) {
-    showProgress(prc);  // Zeige den Fortschritt an
-    oldprc = prc;       // Speichere den aktuellen Fortschritt für die nächste Überprüfung
+    ui.showProgress(kOtaTitle, (uint8_t)prc);
+    oldprc = prc;
   }
 }
 
@@ -66,6 +62,5 @@ static void ota_onError(ota_error_t error) {
   else if (error == OTA_RECEIVE_ERROR) sprintf(err, "Error[%u] Receive Failed", error);
   else if (error == OTA_END_ERROR) sprintf(err, "Error[%u] End Failed", error);
 
-  ota_ui_begin("OTA Fehler");
-  ota_ui_set_sub(err);
+  ui.showMessage("OTA Fehler", StatusTone::Error, err);
 }

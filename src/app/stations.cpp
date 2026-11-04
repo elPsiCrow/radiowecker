@@ -41,7 +41,8 @@ Station defstations[DEFAULTSTATIONS] PROGMEM = {
 
 /* NVS-String direkt in stationlist — ohne temporäre Arduino-String (30×3× getString weniger Heap/Fragmentierung). */
 static void senderLoadStrOr(Preferences &p, const char *key, char *dest, size_t cap, const char *fallback) {
-  if (p.getString(key, dest, cap) == 0)
+  // isKey() first: getString() logs an error for every missing key, which floods the console on first boot.
+  if (!p.isKey(key) || p.getString(key, dest, cap) == 0)
     strlcpy(dest, fallback, cap);
 }
 

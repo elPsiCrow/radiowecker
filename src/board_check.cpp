@@ -5,6 +5,7 @@
 
 void setup() {
   Serial.begin(115200);
+  delay(100);
   Serial.printf("Radiowecker on %s, PSRAM: %u bytes\n", BOARD_NAME, (unsigned)ESP.getPsramSize());
 }
 

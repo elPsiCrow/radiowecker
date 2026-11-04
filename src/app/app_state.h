@@ -7,6 +7,7 @@
 
 #include "app/app_config.h"
 #include "app/stations.h"
+#include "ui/view_model.h"
 
 extern Preferences pref;    // NVS namespace "radio"
 extern Preferences sender;  // NVS namespace "senderlist"
@@ -63,3 +64,4 @@ extern unsigned long lastUpdate;
 extern uint16_t lastLedb;
 extern bool alarmTriggered;
 extern unsigned long lastWeatherUpdate;
+extern WeatherView weatherState;  // Latest successful weather fetch

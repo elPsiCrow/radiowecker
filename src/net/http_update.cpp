@@ -15,10 +15,10 @@
 #include "app/app_config.h"
 #include "app/app_state.h"
 #include "app/log.h"
-#include "drivers/display/lvgl_ili9341/tft_display.h"
 #include "net/webserver.h"
 #include "net/wlan.h"
 #include "ui/i18n.h"
+#include "ui/ui_manager.h"
 
 static bool http_ota_tag_ok(const char *t) {
   if (!t || !*t) return false;
@@ -41,15 +41,12 @@ void httpOtaRunDeferredBoot(void) {
   RADIO_SERIAL(Serial.println(F("HTTP-OTA: Boot-Modus (Display + WLAN + Download)")));
   RADIO_SERIAL(Serial.printf_P(PSTR("heap zu OTA-Start: %u\n"), (unsigned)ESP.getFreeHeap()));
 
-  setBGLight(100);
-  ota_ui_begin(i18n_str(I18N_OTA_HTTP_FW));
-  ota_ui_set_sub(i18n_str(I18N_OTA_LOADING));
-  showProgress(0);
+  const char *const fwTitle = i18n_str(I18N_OTA_HTTP_FW);
+  ui.showProgress(fwTitle, 0);
 
   if (!http_ota_tag_ok(tag)) {
     RADIO_SERIAL(Serial.println(F("HTTP-OTA: ungültiger/leerer Tag in NVS — Neustart normal")));
-    ota_ui_begin(i18n_str(I18N_OTA_ABORTED));
-    ota_ui_set_sub(i18n_str(I18N_OTA_INV_TAG));
+    ui.showMessage(i18n_str(I18N_OTA_ABORTED), StatusTone::Error, i18n_str(I18N_OTA_INV_TAG));
     delay(2500);
     ESP.restart();
     return;
@@ -57,26 +54,23 @@ void httpOtaRunDeferredBoot(void) {
 
   RADIO_SERIAL(Serial.printf_P(PSTR("HTTP-OTA: Tag %s\n"), tag));
 
-  ota_ui_set_sub(i18n_str(I18N_OTA_CONN_WLAN));
+  ui.showMessage(fwTitle, StatusTone::Info, i18n_str(I18N_OTA_CONN_WLAN));
   if (!initWiFi(ssid, pkey)) {
     RADIO_SERIAL(Serial.println(F("HTTP-OTA: WLAN fehlgeschlagen — Neustart normal")));
-    ota_ui_begin(i18n_str(I18N_OTA_FAILED));
-    ota_ui_set_sub(i18n_str(I18N_OTA_NO_WLAN));
+    ui.showMessage(i18n_str(I18N_OTA_FAILED), StatusTone::Error, i18n_str(I18N_OTA_NO_WLAN));
     delay(3000);
     ESP.restart();
     return;
   }
 
-  ota_ui_set_sub(i18n_str(I18N_OTA_DL_FW));
-  showProgress(0);
+  ui.showProgress(fwTitle, 0);
 
   char url[256];
   int urllen = snprintf(url, sizeof(url), "https://github.com/%s/%s/releases/download/%s/%s", HTTP_OTA_GITHUB_OWNER,
                         HTTP_OTA_GITHUB_REPO, tag, HTTP_OTA_FIRMWARE_FILENAME);
   if (urllen <= 0 || (size_t)urllen >= sizeof(url)) {
     RADIO_SERIAL(Serial.println(F("HTTP-OTA: URL-Puffer zu klein")));
-    ota_ui_begin(i18n_str(I18N_OTA_FAILED));
-    ota_ui_set_sub(i18n_str(I18N_OTA_URL_LONG));
+    ui.showMessage(i18n_str(I18N_OTA_FAILED), StatusTone::Error, i18n_str(I18N_OTA_URL_LONG));
     delay(3000);
     ESP.restart();
     return;
@@ -90,11 +84,11 @@ void httpOtaRunDeferredBoot(void) {
   httpOta.rebootOnUpdate(true);
   httpOta.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
-  httpOta.onProgress([](size_t cur, size_t total) {
+  httpOta.onProgress([fwTitle](size_t cur, size_t total) {
     if (total == 0) return;
     uint32_t prc = (uint32_t)((100UL * (unsigned long)cur) / (unsigned long)total);
     if (prc > 100u) prc = 100u;
-    showProgress(prc);
+    ui.showProgress(fwTitle, (uint8_t)prc);
     static uint32_t s_last = 999;
     if (prc / 5u != s_last / 5u) {
       s_last = prc;
@@ -108,8 +102,7 @@ void httpOtaRunDeferredBoot(void) {
 
   /* Bibliothek rebootet oft selbst; falls nicht, nach OK nachziehen */
   if (ret == HTTP_UPDATE_OK) {
-    showProgress(100);
-    ota_ui_set_sub(i18n_str(I18N_OTA_RESTART));
+    ui.showMessage(fwTitle, StatusTone::Ok, i18n_str(I18N_OTA_RESTART));
     delay(500);
     ESP.restart();
     return;
@@ -117,16 +110,15 @@ void httpOtaRunDeferredBoot(void) {
 
   String detail = httpOta.getLastErrorString();
   RADIO_SERIAL(Serial.printf_P(PSTR("HTTP OTA Fehler ret=%d %s\n"), (int)ret, detail.c_str()));
-  ota_ui_begin(i18n_str(I18N_OTA_FAILED));
   {
     char line[48];
     snprintf(line, sizeof(line), "%s %d", i18n_str(I18N_OTA_CODE), (int)ret);
-    ota_ui_set_sub(line);
+    ui.showMessage(i18n_str(I18N_OTA_FAILED), StatusTone::Error, line);
   }
   delay(400);
   if (detail.length() > 0 && detail.length() < 70) {
     delay(2200);
-    ota_ui_set_sub(detail.c_str());
+    ui.showMessage(i18n_str(I18N_OTA_FAILED), StatusTone::Error, detail.c_str());
   }
   delay(3000);
   ESP.restart();

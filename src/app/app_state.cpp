@@ -53,3 +53,4 @@ unsigned long lastUpdate = 0;
 uint16_t lastLedb = 0;
 bool alarmTriggered = false;
 unsigned long lastWeatherUpdate = 0;
+WeatherView weatherState;

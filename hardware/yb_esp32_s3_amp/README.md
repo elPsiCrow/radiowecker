@@ -23,6 +23,15 @@ The board shows two COM ports. Serial monitor output appears on the "USB-Enhance
 the Windows driver is available from WCH (search for CH343). Flashing is automatic; if it fails, hold `B`,
 tap `R`, release `B`.
 
+## First run
+
+1. `pio run -e yb_esp32_s3_amp -t upload`, then `pio device monitor` on the CH343 port (115200 baud).
+2. Without stored Wi-Fi credentials the console prints `== Not connected ==` and the soft-AP name
+   `radioweckerconf`. Join that network and open `http://192.168.4.1` to enter your Wi-Fi settings.
+3. After the restart the console prints a status line whenever something changes. Type `p` + Enter to
+   play, `n` for the next station, `v40` to set the volume; any other input lists all commands
+   (see [serial input](../../src/drivers/input/serial/README.md)).
+
 ## Other module variants
 
 For -N16R8 / -N8R8 modules the PSRAM mode and flash size in `boards/yb_esp32_s3_amp.json` have to change

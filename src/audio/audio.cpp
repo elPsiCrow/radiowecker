@@ -10,7 +10,7 @@
 #include "app/app_state.h"
 #include "app/log.h"
 #include "board_config.h"
-#include "drivers/display/lvgl_ili9341/tft_display.h"
+#include "ui/ui_manager.h"
 
 /* Stream-/Codec per malloc beim ersten startUrl — nicht in setup nach LVGL (sonst ~100 KiB Heap → LwIP/Wetter). */
 const int preallocateBufferSize = 40 * 1024;
@@ -132,13 +132,13 @@ static void audio_recover_or_stop(void) {
   if (radio && connected && !alarmBeepActive && actStation < STATIONS) {
     RADIO_SERIAL(Serial.printf_P(PSTR("Stream unterbrochen — Reconnect %s\n"), stationlist[actStation].name));
     if (startUrl(stationlist[actStation].url, alarmActionsVisible && radio)) {
-      DrawFooterButtons_Power_Sleep_Alarm();
+      ui.markDirty();
       return;
     }
   }
   radio = false;
   RADIO_SERIAL(Serial.println(F("Stream beendet / Reconnect fehlgeschlagen (Radio aus).")));
-  DrawFooterButtons_Power_Sleep_Alarm();
+  ui.markDirty();
 }
 
 #if defined(ESP32)
@@ -362,7 +362,7 @@ bool startUrl(const char *url, bool useAlarmGain) {
   file->RegisterMetadataCB(MDCallback, NULL);
 
   buff = new AudioFileSourceBuffer(file, preallocateBuffer, s_effective_buffer_size);
-  RADIO_SERIAL(Serial.printf_P(PSTR("sourcebuffer created - Free mem=%d\n"), ESP.getFreeHeap()));
+  RADIO_SERIAL(Serial.printf_P(PSTR("sourcebuffer created - Free mem=%u\n"), (unsigned)ESP.getFreeHeap()));
 
   decoder = (AudioGenerator *)new AudioGeneratorMP3(preallocateCodec, preallocateCodecSize);
   RADIO_SERIAL(Serial.printf_P(PSTR("created decoder\n")));

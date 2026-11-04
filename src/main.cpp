@@ -1,21 +1,22 @@
 // Application entry point: boot sequence and main loop.
-#include <Adafruit_ILI9341.h>  // RGB565 color constants for the message screens
 #include <ArduinoOTA.h>
 #include <WiFi.h>
 
 #include "app/alarm.h"
 #include "app/app_config.h"
 #include "app/app_state.h"
+#include "app/board_setup.h"
+#include "app/controller.h"
 #include "app/log.h"
 #include "audio/audio.h"
 #include "board_config.h"
-#include "drivers/display/lvgl_ili9341/tft_display.h"
 #include "net/http_update.h"
 #include "net/ota.h"
 #include "net/weather.h"
 #include "net/webserver.h"
 #include "net/wlan.h"
 #include "ui/i18n.h"
+#include "ui/ui_manager.h"
 
 // Classic ESP32 only: release Bluetooth RAM for the application. Declared here to avoid pulling in esp_bt.h.
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) && CONFIG_IDF_TARGET_ESP32
@@ -30,7 +31,7 @@ static void poll_alarm_hw_buttons(void);
 static void alarm_hw_stop_button_action(void);
 
 void setup() {
-  RADIO_SERIAL(Serial.begin(115200));
+  RADIO_SERIAL(Serial.begin(115200); delay(100); Serial.println("Serial initialized"););
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) && CONFIG_IDF_TARGET_ESP32
   esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
 #endif
@@ -95,10 +96,10 @@ void setup() {
 
   setup_audio();
   RADIO_SERIAL(Serial.printf_P(PSTR("heap after setup_audio: %u\n"), (unsigned)ESP.getFreeHeap()));
-  RADIO_SERIAL(Serial.println(F("setup_display...")));
-  setup_display();
-  RADIO_SERIAL(Serial.printf_P(PSTR("heap after setup_display: %u\n"), (unsigned)ESP.getFreeHeap()));
-  RADIO_SERIAL(Serial.println(F("setup_display OK")));
+  RADIO_SERIAL(Serial.println(F("ui.begin...")));
+  boardSetup(ui);
+  ui.begin();
+  RADIO_SERIAL(Serial.printf_P(PSTR("heap after ui.begin: %u\n"), (unsigned)ESP.getFreeHeap()));
 
   // HTTP OTA continues after the restart that the web UI triggered; it reuses the OTA screen.
   if (pref.getUChar(PREF_HTTP_OTA_PEND, 0) != 0) {
@@ -112,9 +113,13 @@ void setup() {
   RADIO_SERIAL(Serial.printf_P(PSTR("heap after setup_senderList: %u\n"), (unsigned)ESP.getFreeHeap()));
   setGain(curGain);
 
-  displayClear();
-  displayMessage(5, 10, 310, 30, i18n_str(I18N_CONNECTING_TO), ALIGNCENTER, true, ILI9341_YELLOW, ILI9341_BLACK, 1);
-  displayMessage(5, 50, 310, 30, ssid, ALIGNCENTER, true, ILI9341_GREEN, ILI9341_BLACK, 1);
+  {
+    StatusScreen connecting;
+    connecting.title = i18n_str(I18N_CONNECTING_TO);
+    connecting.lines[0] = ssid;
+    connecting.lineCount = 1;
+    ui.showStatus(connecting);
+  }
   RADIO_SERIAL(Serial.println("Connect WiFi"));
 
   connected = initWiFi(ssid, pkey);
@@ -131,12 +136,15 @@ void setup() {
 
     if (pref.isKey("alarmon") && pref.getBool("alarmon")) findNextAlarm();
   } else {
-    displayClear();
-    displayMessage(5, 10, 310, 30, i18n_str(I18N_NOT_CONNECTED), ALIGNCENTER, true, ILI9341_RED, ILI9341_BLACK, 1);
-    displayMessage(5, 50, 310, 30, i18n_str(I18N_CONNECT_TO_AP), ALIGNCENTER, true, ILI9341_WHITE, ILI9341_BLACK, 1);
-    displayMessage(5, 100, 310, 30, AP_NAME, ALIGNCENTER, true, ILI9341_GREEN, ILI9341_BLACK, 1);
-    displayMessage(5, 150, 310, 30, i18n_str(I18N_CONFIG_IP), ALIGNCENTER, true, ILI9341_WHITE, ILI9341_BLACK, 1);
-    displayMessage(5, 200, 310, 30, "192.168.4.1", ALIGNCENTER, true, ILI9341_GREEN, ILI9341_BLACK, 1);
+    StatusScreen notConnected;
+    notConnected.tone = StatusTone::Error;
+    notConnected.title = i18n_str(I18N_NOT_CONNECTED);
+    notConnected.lines[0] = i18n_str(I18N_CONNECT_TO_AP);
+    notConnected.lines[1] = AP_NAME;
+    notConnected.lines[2] = i18n_str(I18N_CONFIG_IP);
+    notConnected.lines[3] = "192.168.4.1";
+    notConnected.lineCount = 4;
+    ui.showStatus(notConnected);
 
     discon = millis();  // Start of the 5-minute window after which loop() restarts the device
   }
@@ -147,7 +155,7 @@ void setup() {
   setup_ota();
 
   if (connected) {
-    showStartPage();
+    ui.showHome();
   }
 
   setup_alarm_hw_buttons();
@@ -165,61 +173,49 @@ void loop() {
 
   webserver_loop();
 
-  touch_loop();
+  ui.loop();
 
   poll_alarm_hw_buttons();
 
-  if (i18n_take_ui_dirty()) {
-    tft_i18n_refresh_labels();
-  }
-
-  // Feed the audio pipeline again: a screen change can keep lv_timer_handler busy long enough to underrun.
+  // Feed the audio pipeline again: a screen change can keep the display busy long enough to underrun.
   if (connected && (radio || decoder || alarmBeepActive)) {
     audio_loop();
-  }
-
-  // Sub pages (favorites, settings, alarm) time out after 10 s.
-  if (!startpage && ((millis() - start_conf) > 10000)) {
-    showStartPage();
-  }
-
-  if (newTitle && radio && startpage) {
-    showTitle();
-    newTitle = false;
   }
 
   if (connected && (WiFi.status() != WL_CONNECTED)) {
     connected = false;
     discon = millis();
-    displayClear();
-    displayMessage(5, 10, 310, 30, i18n_str(I18N_NOT_CONNECTED), ALIGNCENTER, true, ILI9341_RED, ILI9341_BLACK, 1);
+    StatusScreen lost;
+    lost.tone = StatusTone::Error;
+    lost.title = i18n_str(I18N_NOT_CONNECTED);
+    ui.showStatus(lost);
   }
 
   if (!connected && (WiFi.status() == WL_CONNECTED)) {
     connected = true;
     lastWeatherUpdate = 0;  // Fetch the weather soon after reconnecting instead of waiting for the interval
-    displayClear();
-    displayMessage(5, 10, 310, 30, i18n_str(I18N_RECONNECTED), ALIGNCENTER, true, ILI9341_GREEN, ILI9341_BLACK, 1);
-    reconnected = true;
-  }
-
-  // Brightness 0 % means "follow the ambient light sensor".
-  if (bright == 0) {
-    int16_t tmp = analogRead(PIN_LDR);
-    int16_t diff = abs(lastldr - tmp);
-
-    if (startpage && (diff > 50)) {
-      setBGLight(bright);
-      RADIO_SERIAL(Serial.printf("ldr %i last %i\n", tmp, lastldr));
-      lastldr = tmp;
-    }
+    StatusScreen back;
+    back.tone = StatusTone::Ok;
+    back.title = i18n_str(I18N_RECONNECTED);
+    ui.showStatus(back);
+    reconnected = true;  // The status screen is replaced by the home screen on the next second tick
   }
 
   // Only with a station connection: in AP-only mode there is no internet.
   if (millis() - lastWeatherUpdate > weatherUpdateInterval || lastWeatherUpdate == 0) {
     if (connected && !radio && startpage) {
       OpenMeteoTemps wt;
-      if (fetchOpenMeteoWeather(&wt, LATITUDE, LONGITUDE, TIME_ZONE_IANA)) displayWeather(&wt);
+      if (fetchOpenMeteoWeather(&wt, LATITUDE, LONGITUDE, TIME_ZONE_IANA)) {
+        weatherState.valid = true;
+        weatherState.revision++;
+        weatherState.currentC = wt.current_c;
+        weatherState.feelsC = wt.feels_c;
+        weatherState.todayMinC = wt.today_min;
+        weatherState.todayMaxC = wt.today_max;
+        weatherState.tomorrowMinC = wt.tomorrow_min;
+        weatherState.tomorrowMaxC = wt.tomorrow_max;
+        ui.markDirty();
+      }
     }
     lastWeatherUpdate = millis();
   }
@@ -231,8 +227,7 @@ void loop() {
     // Sleep timer elapsed: radio off.
     if (millis() > snoozeTimeEnd && snoozeTimeEnd > 0) {
       snoozeTimeEnd = 0;
-      toggleRadio(true);
-      showRadio();
+      playbackStop();
     }
 
     // Alarm snooze elapsed: start the wake-up sound again.
@@ -242,10 +237,9 @@ void loop() {
       if (alarmWakeMode == 1) {
         alarm_beep_start();
       } else {
-        toggleRadio(false, false, true);
+        playbackStart(true);
       }
-      // The beep path skips toggleRadio, so refresh the overlay explicitly.
-      showRadio();
+      ui.markDirty();  // The beep path does not go through the controller
     }
 
     if (connected && getLocalTime(&ti)) {
@@ -253,14 +247,9 @@ void loop() {
       weekday = ti.tm_wday;
     }
 
-    if (connected && startpage) {
-      if (!reconnected) {
-        setBGLight(bright);
-        displayDateTime();  // Partial update, no full redraw
-      } else {
-        showStartPage();  // Full redraw after a reconnect
-        reconnected = false;
-      }
+    if (connected && reconnected) {
+      reconnected = false;
+      ui.showHome();
     }
 
     // Alarm check, only when the alarm is switched on in NVS.
@@ -271,11 +260,10 @@ void loop() {
         if (alarmWakeMode == 1) {
           alarm_beep_start();
         } else {
-          toggleRadio(false, false, true);  // Radio on at alarm volume
+          playbackStart(true);  // Radio on at alarm volume
         }
-        showRadio();
         findNextAlarm();
-        showNextAlarm();
+        ui.markDirty();
       }
     }
   }
@@ -316,7 +304,7 @@ static void poll_alarm_hw_buttons(void) {
     if (snooze_wait_release == 0) {
       if (lv == LOW) {
         if (alarmActionsVisible) {
-          alarm_action_snooze();
+          alarmSnooze();
           snooze_wait_release = 1;
         } else {
           snooze_wait_release = 2;  // Ignore this press until the button is released
@@ -331,8 +319,8 @@ static void poll_alarm_hw_buttons(void) {
 // Hardware stop: switch everything off; if nothing is running, switch the radio on instead.
 static void alarm_hw_stop_button_action(void) {
   if (radio || alarmActionsVisible || alarmSnoozeUntil != 0) {
-    toggleRadio(true, false);
+    playbackStop();
   } else {
-    toggleRadio(false, false);
+    playbackStart();
   }
 }

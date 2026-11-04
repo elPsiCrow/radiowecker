@@ -5,6 +5,11 @@
 
 #define RADIOVERSION "v5.0.6"
 
+// 1 when the LVGL TFT driver is part of the build (enables the start-page color settings in the web API).
+#ifndef HAS_LVGL_TFT
+#define HAS_LVGL_TFT 0
+#endif
+
 #define STATIONS 30           // Number of station slots in the list
 #define MINUTES_PER_DAY 1440  // 24 * 60
 

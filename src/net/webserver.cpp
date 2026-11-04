@@ -10,12 +10,16 @@
 #include "app/alarm.h"
 #include "app/app_config.h"
 #include "app/app_state.h"
+#include "app/controller.h"
 #include "app/log.h"
 #include "audio/audio.h"
+#if HAS_LVGL_TFT
 #include "drivers/display/lvgl_ili9341/tft_display.h"
+#endif
 #include "net/http_update.h"
 #include "net/web_pages.h"
 #include "ui/i18n.h"
+#include "ui/ui_manager.h"
 #include "ui/ui_start_colors.h"
 
 // HTTP handlers registered in setup_webserver(); defined further down in this file.
@@ -47,9 +51,11 @@ void setSleepTimerWeb();
 void setAlarmSnoozeWeb();
 void setAlarmGainWeb();
 void setAlarmWakeWeb();
+#if HAS_LVGL_TFT
 void getStartColors();
 void setStartColorsWeb();
 void resetStartColorsWeb();
+#endif
 void getInfo();
 void getHeapOnly();
 void getLang();
@@ -95,9 +101,11 @@ void setup_webserver() {
   server.on("/cmd/setAlarmSnooze", setAlarmSnoozeWeb);
   server.on("/cmd/setAlarmGain", setAlarmGainWeb);
   server.on("/cmd/setAlarmWake", setAlarmWakeWeb);
+#if HAS_LVGL_TFT
   server.on("/cmd/getStartColors", getStartColors);
   server.on("/cmd/setStartColors", HTTP_POST, setStartColorsWeb, nullptr);
   server.on("/cmd/resetStartColors", HTTP_POST, resetStartColorsWeb, nullptr);
+#endif
 
   // Info-Tab: Definiert die Route für das Abrufen von Systeminformationen
   server.on("/cmd/getInfo", getInfo);  // Ruft allgemeine Systeminformationen ab
@@ -346,7 +354,7 @@ void setAlarms() {
   /* Speichern im Web-Tab Wecker: Wecker sicher einschalten und nächsten Termin suchen */
   pref.putBool("alarmon", true);
   findNextAlarm();
-  if (startpage) showNextAlarm();
+  ui.markDirty();
 
   // Sende eine Bestätigung als Antwort
   server.send(200, "text/plain", "OK");
@@ -468,13 +476,13 @@ void restart() {
 // Player Tab ######################
 // Verarbeitet den AJAX-Befehl /cmd/startPlay, um das Radio zu starten
 void startPlay() {
-  toggleRadio(false);                    // Schaltet das Radio ein
+  playbackStart();                       // Schaltet das Radio ein
   server.send(200, "text/plain", "OK");  // Antwortet mit "OK"
 }
 
 // Verarbeitet den AJAX-Befehl /cmd/stopPlay, um das Radio zu stoppen
 void stopPlay() {
-  toggleRadio(true);                     // Schaltet das Radio aus
+  playbackStop();                        // Schaltet das Radio aus
   server.send(200, "text/plain", "OK");  // Antwortet mit "OK"
 }
 
@@ -485,7 +493,7 @@ void GainSlider() {
     // Konvertiert den Wert des Parameters in einen float
     float floatWert = atof(server.arg("GainValue").c_str());
     // Setzt den Lautstärkewert
-    setGainValue(floatWert, "WEBSITE");
+    setVolume((uint8_t)constrain((int)floatWert, 0, 100));
     // Antwortet mit "OK"
     server.send(200, "text/plain", "OK");
 
@@ -503,7 +511,7 @@ void GainSlider() {
 // Verarbeitet den AJAX-Befehl /cmd/btnAlarm, um den Alarm ein- oder auszuschalten
 void btnAlarm() {
   // Schaltet den Alarm um
-  toggleAlarm();
+  alarmToggleArmed();
   // Antwortet mit "OK"
   server.send(200, "text/plain", "OK");
 }
@@ -511,14 +519,14 @@ void btnAlarm() {
 // Verarbeitet den AJAX-Befehl /cmd/startSleep, um die Schlummerfunktion zu starten
 void startSleep() {
   // Startet die Schlummerfunktion
-  startSnooze();
+  sleepTimerStart();
   // Antwortet mit "OK"
   server.send(200, "text/plain", "OK");
 }
 
 // Verarbeitet den AJAX-Befehl /cmd/beforeStation, um zur vorherigen "aktiven" Station zu wechseln
 void beforeStation() {
-  if (station_navigate_prev())
+  if (stationStep(-1))
     server.send(200, "text/plain", "OK");
   else
     server.send(200, "text/plain", i18n_str(I18N_ERR_NO_STATION));
@@ -526,7 +534,7 @@ void beforeStation() {
 
 // Verarbeitet den AJAX-Befehl /cmd/nextStation, um zur nächsten "aktiven" Station zu wechseln
 void nextStation() {
-  if (station_navigate_next())
+  if (stationStep(1))
     server.send(200, "text/plain", "OK");
   else
     server.send(200, "text/plain", i18n_str(I18N_ERR_NO_STATION));
@@ -542,7 +550,7 @@ void selectStationByIndex() {
     server.send(200, "text/plain", i18n_str(I18N_ERR_NO_STATION));
     return;
   }
-  if (station_navigate_select((uint8_t)v))
+  if (stationSelect((uint8_t)v))
     server.send(200, "text/plain", "OK");
   else
     server.send(200, "text/plain", i18n_str(I18N_ERR_NO_STATION));
@@ -637,7 +645,7 @@ void setBrightWeb() {
     server.send(400, "text/plain", "ERROR");
     return;
   }
-  web_apply_brightness((uint8_t)v);
+  setBrightnessPercent((uint8_t)v);
   server.send(200, "text/plain", "OK");
 }
 
@@ -651,7 +659,7 @@ void setSleepTimerWeb() {
     server.send(400, "text/plain", "ERROR");
     return;
   }
-  web_apply_sleep_timer_min((uint8_t)v);
+  setSleepTimerMinutes((uint8_t)v);
   server.send(200, "text/plain", "OK");
 }
 
@@ -665,7 +673,7 @@ void setAlarmSnoozeWeb() {
     server.send(400, "text/plain", "ERROR");
     return;
   }
-  web_apply_alarm_snooze_min((uint8_t)v);
+  setAlarmSnoozeMinutes((uint8_t)v);
   server.send(200, "text/plain", "OK");
 }
 
@@ -679,7 +687,7 @@ void setAlarmGainWeb() {
     server.send(400, "text/plain", "ERROR");
     return;
   }
-  web_apply_alarm_gain((uint8_t)v);
+  setAlarmVolume((uint8_t)v);
   server.send(200, "text/plain", "OK");
 }
 
@@ -693,10 +701,11 @@ void setAlarmWakeWeb() {
     server.send(400, "text/plain", "ERROR");
     return;
   }
-  web_apply_alarm_wake((uint8_t)v);
+  setAlarmWakeMode((uint8_t)v);
   server.send(200, "text/plain", "OK");
 }
 
+#if HAS_LVGL_TFT
 static void ui565_to_hex_json(uint16_t c, char *buf, size_t cap) {
   uint8_t r5 = (uint8_t)((c >> 11) & 0x1F);
   uint8_t g6 = (uint8_t)((c >> 5) & 0x3F);
@@ -828,6 +837,7 @@ void resetStartColorsWeb() {
   ui_start_colors_reset_to_factory();
   server.send(200, "text/plain", "OK");
 }
+#endif  // HAS_LVGL_TFT
 
 //################ Info Tab
 // AJAX-Befehl /cmd/getInfo

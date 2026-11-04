@@ -51,39 +51,16 @@ void DrawFooterButtons_Power_Sleep_Alarm(void);
 void tft_i18n_refresh_labels(void);
 
 // Settings widgets
-void showSlider(uint16_t y, float value, uint16_t vmax, uint16_t bgColor, uint16_t lineColor);
 void showGain(void);
 void showBrightness(void);
 void showSnoozeTime(void);
 void showAlarmSnoozeMin(void);
 void ui_sync_all_gain_sliders(void);
-void setGainValue(uint16_t value, const char *sliderPage);
-void setBrightness(uint16_t value);
-void setSnoozeTime(uint16_t value);
-
-// Applied from the web UI
-void web_apply_brightness(uint8_t v);
-void web_apply_sleep_timer_min(uint8_t v);
-void web_apply_alarm_snooze_min(uint8_t v);
-void web_apply_alarm_gain(uint8_t v);
-void web_apply_alarm_wake(uint8_t v);
 
 // Start-page colors
 void ui_start_colors_load_from_prefs(void);
 void ui_start_colors_apply_from_web(const UiStartColors *src);
 void ui_start_colors_reset_to_factory(void);
-
-// Actions that currently live next to the UI code
-void toggleRadio(boolean off, boolean keepAlarmSnoozePending = false, boolean useAlarmGainWhenStarting = false);
-void alarm_action_stop(void);
-void alarm_action_snooze(void);
-void toggleAlarm(void);
-void startSnooze(void);
-void changeStation(void);
-void selectStation(uint16_t x);
-bool station_navigate_prev(void);
-bool station_navigate_next(void);
-bool station_navigate_select(uint8_t idx);
 
 // Legacy no-op stubs kept for API parity with the pre-LVGL touch UI
 void toggleAlarmDay(uint16_t xPos, uint16_t yPos);
